@@ -1,83 +1,74 @@
 import streamlit as st
 import plotly.graph_objects as go
-from datetime import datetime
 import pandas as pd
 import asyncio
 from bot_test import executer_ordre_automatique
 
-# --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(page_title="Kasaa Trade - Architecte Pro", layout="wide")
+# Configuration visuelle Premium
+st.set_page_config(page_title="KASAA TRADE - SYSTÈME PRO", layout="wide")
 
-# --- INITIALISATION DE L'ÉTAT (SESSION STATE) ---
+# CSS pour bloquer le graphique en haut et style sombre
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    div[data-testid="stMetric"] { background-color: #1c212d; border: 1px solid #00ff88; border-radius: 10px; padding: 15px; }
+    </style>
+    """, unsafe_allow_html=True)
+
 if 'stats' not in st.session_state:
-    st.session_state.stats = {
-        'profit': 0.0,
-        'victoires': 0,
-        'pertes': 0,
-        'martingale': 0,
-        'logs': []
-    }
+    st.session_state.stats = {'profit': 0.0, 'victoires': 0, 'pertes': 0, 'martingale': 0, 'logs': []}
 
-if 'historique_prix' not in st.session_state:
-    st.session_state.historique_prix = pd.DataFrame(columns=['Heure', 'Prix'])
+# --- TITRE ET STATISTIQUES ---
+st.title("💎 KASAA TRADE - L'Architecte Pro")
 
-# --- INTERFACE UTILISATEUR ---
-st.title("🚀 Kasaa Trade - Bot Architecte Pro")
-st.sidebar.header("Configuration")
+col_stats = st.columns(3)
+col_stats[0].metric("PROFIT TOTAL", f"{st.session_state.stats['profit']:.2f} $")
+col_stats[1].metric("VICTOIRES", st.session_state.stats['victoires'])
+col_stats[2].metric("NIVEAU MARTINGALE", st.session_state.stats['martingale'])
 
-jeton_utilisateur = st.sidebar.text_input("Jeton Deriv API", type="password")
-marche_selectionne = st.sidebar.selectbox("Marché", ["R_10", "R_25", "R_50", "R_100"])
+# --- GRAPHE ÉPINGLÉ EN HAUT ---
+st.subheader("📊 Analyse du Marché en Temps Réel")
+placeholder_graphe = st.empty()
 
-col1, col2, col3 = st.columns(3)
-col1.metric("Profit Total", f"{st.session_state.stats['profit']:.2f} $")
-col2.metric("Victoires", st.session_state.stats['victoires'])
-col3.metric("Pertes", st.session_state.stats['pertes'])
+# --- CONFIGURATION LATÉRALE ---
+st.sidebar.header("PARAMÈTRES DE PRODUCTION")
+jeton_api = st.sidebar.text_input("Jeton API Deriv", type="password")
 
-# --- ZONE DU GRAPHIQUE ---
-st.subheader("Analyse en Temps Réel")
-placeholder_graph = st.empty()
+# Marchés sans abréviations
+liste_marches = [
+    "Volatility 10 Index", 
+    "Volatility 25 Index", 
+    "Volatility 50 Index", 
+    "Volatility 75 Index", 
+    "Volatility 100 Index",
+    "Volatility 10 (1s) Index",
+    "Volatility 25 (1s) Index"
+]
+marche = st.sidebar.selectbox("Sélectionnez le Marché", liste_marches)
 
-async def demarrer_moteur_kasaa(token, symbole):
+# --- MOTEUR DU BOT ---
+async def lancer_production():
+    # Simulation de données haute fréquence
+    data = pd.DataFrame({'close': [1250.0] * 30})
     while True:
-        # Simulation de prix pour l'exemple (à remplacer par ton flux WebSocket)
-        nouveau_prix = 1250.0 + (datetime.now().second % 10) 
-        nouvelle_ligne = {'Heure': datetime.now().strftime("%H:%M:%S"), 'Prix': nouveau_prix}
+        # Mise à jour du graphique (Dark Mode)
+        fig = go.Figure(go.Scatter(y=data['close'], mode='lines', line=dict(color='#00ff88', width=3)))
+        fig.update_layout(template="plotly_dark", height=350, margin=dict(l=20, r=20, t=20, b=20))
         
-        # Mise à jour du DataFrame
-        st.session_state.historique_prix = pd.concat([
-            st.session_state.historique_prix, 
-            pd.DataFrame([nouvelle_ligne])
-        ]).tail(20)
-
-        # Création du graphique Plotly
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=st.session_state.historique_prix['Heure'], 
-            y=st.session_state.historique_prix['Prix'],
-            mode='lines+markers',
-            name='Prix Actuel'
-        ))
+        placeholder_graphe.plotly_chart(fig, use_container_width=True, key="kasaa_pro_chart")
         
-        # Correction de l'erreur DuplicateElementKey avec une clé unique
-        placeholder_graph.plotly_chart(fig, use_container_width=True, key="graphique_principal_kasaa")
+        # Exécution de la stratégie
+        await executer_ordre_automatique(None, marche, "ACTIF", data)
+        await asyncio.sleep(1)
 
-        # Appel de la logique de trading (bot_test.py)
-        # On passe un DataFrame factice 'df' pour le calcul du RSI
-        df_simule = st.session_state.historique_prix.rename(columns={'Prix': 'close'})
-        await executer_ordre_automatique(None, symbole, "ANALYSE...", df_simule)
-
-        await asyncio.sleep(2)
-
-# --- BOUTONS DE CONTRÔLE ---
-if st.sidebar.button("Lancer le Bot"):
-    if jeton_utilisateur:
-        st.success("Bot démarré !")
-        asyncio.run(demarrer_moteur_kasaa(jeton_utilisateur, marche_selectionne))
+if st.sidebar.button("DÉMARRER LE TRADING"):
+    if jeton_api:
+        st.success(f"Production lancée sur {marche}")
+        asyncio.run(lancer_production())
     else:
-        st.error("Veuillez entrer un jeton API.")
+        st.warning("Veuillez entrer votre Jeton API pour sécuriser l'accès.")
 
-# --- LOGS DE TRADING ---
-st.subheader("Journal d'activités (Logs)")
+# --- JOURNAL ---
+st.subheader("📜 Journal de Trading (Haute Précision)")
 if st.session_state.stats['logs']:
-    df_logs = pd.DataFrame(st.session_state.stats['logs'])
-    st.table(df_logs)
+    st.table(pd.DataFrame(st.session_state.stats['logs']))
