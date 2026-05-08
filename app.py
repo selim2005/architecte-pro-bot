@@ -186,7 +186,8 @@ async def cycle_trading():
         margin=dict(l=20, r=20, t=30, b=20),
         title=dict(text=f"📈 {marche}", font=dict(color='#00ff88'))
     )
-    placeholder_graphe.plotly_chart(fig, use_container_width=True)
+# Modifie la ligne du graphique comme ceci :
+placeholder_graphe.plotly_chart(fig, use_container_width=True, key=f"kasaa_chart_{time.time()}")
 
     # 4. Analyse et décision
     analyse = analyser_marche(df)
